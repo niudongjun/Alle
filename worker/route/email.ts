@@ -1,0 +1,234 @@
+import { and, desc, eq, inArray, like, or, sql, type SQL } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/d1";
+import { Hono } from "hono";
+import * as schema from "../db/schema";
+
+export const emailRoutes = new Hono<{ Bindings: Env }>();
+
+async function getEmailRecord(db: ReturnType<typeof drizzle>, id: string) {
+	const row = await db
+		.select({
+			email: schema.emails,
+			account: schema.accounts,
+		})
+		.from(schema.emails)
+		.innerJoin(schema.accounts, eq(schema.emails.account_id, schema.accounts.id))
+		.where(eq(schema.emails.id, id))
+		.get();
+	if (!row) return null;
+	return {
+		...row.email,
+		snippet: row.email.body ? row.email.body.replace(/\s+/g, " ").trim().slice(0, 160) || null : null,
+		account: row.account,
+	};
+}
+
+emailRoutes.get("/", async (c) => {
+	const limitValue = Number.parseInt(c.req.query("limit") || "20", 10);
+	const cursorValue = c.req.query("cursor");
+	const cursor = cursorValue ? Number.parseInt(cursorValue, 10) : null;
+	const accountId = c.req.query("account_id") || c.req.query("accountId") || null;
+	const readValue = c.req.query("read");
+	const keyword = c.req.query("q")?.trim() || null;
+
+	if (!Number.isInteger(limitValue) || limitValue <= 0) {
+		return c.json({ error: "Invalid email list limit." }, 400);
+	}
+	if (cursorValue && (!Number.isInteger(cursor) || !cursor || cursor <= 0)) {
+		return c.json({ error: "Invalid email list cursor." }, 400);
+	}
+	if (readValue !== undefined && readValue !== "0" && readValue !== "1") {
+		return c.json({ error: "Invalid email read filter." }, 400);
+	}
+
+	const limit = Math.min(limitValue, 100);
+	const conditions: SQL[] = [];
+	const read = readValue === undefined ? null : Number(readValue) as 0 | 1;
+	if (accountId) conditions.push(eq(schema.emails.account_id, accountId));
+	if (read !== null) conditions.push(eq(schema.emails.read, read));
+	if (cursor) conditions.push(sql`emails.rowid < ${cursor}`);
+	if (keyword) {
+		const search = or(
+			like(schema.emails.subject, `%${keyword}%`),
+			like(schema.emails.from_name, `%${keyword}%`),
+			like(schema.emails.from_address, `%${keyword}%`),
+			like(schema.emails.recipient, `%${keyword}%`),
+		);
+		if (search) conditions.push(search);
+	}
+
+	const db = drizzle(c.env.DB, { schema });
+	// 当前没有单独的收件时间主键，自增 rowid 是最稳定的无限滚动游标。
+	const rows = await db
+		.select({
+			cursor: sql<number>`emails.rowid`,
+			id: schema.emails.id,
+			from_name: schema.emails.from_name,
+			date: schema.emails.date,
+			subject: schema.emails.subject,
+			read: schema.emails.read,
+		})
+		.from(schema.emails)
+		.where(conditions.length > 0 ? and(...conditions) : undefined)
+		.orderBy(desc(sql`emails.rowid`), desc(schema.emails.id))
+		.limit(limit + 1)
+		.all();
+
+	const hasMore = rows.length > limit;
+	const page = hasMore ? rows.slice(0, limit) : rows;
+	const nextCursor = hasMore ? String(page[page.length - 1].cursor) : null;
+
+	return c.json({
+		items: page.map((email) => ({
+			id: email.id,
+			from_name: email.from_name,
+			date: email.date,
+			subject: email.subject,
+			read: email.read,
+		})),
+		next_cursor: nextCursor,
+		has_more: hasMore,
+	});
+});
+
+emailRoutes.get("/:id/attachments/:attachmentId", async (c) => {
+	const emailId = c.req.param("id");
+	const attachmentId = c.req.param("attachmentId");
+	const db = drizzle(c.env.DB, { schema });
+	const attachment = await db
+		.select()
+		.from(schema.attachments)
+		.where(and(
+			eq(schema.attachments.id, attachmentId),
+			eq(schema.attachments.email_id, emailId),
+		))
+		.get();
+
+	if (!attachment) return c.json({ error: "Attachment not found." }, 404);
+
+	const object = await c.env.ATTACHMENTS.get(attachment.object_key);
+	if (!object?.body) return c.json({ error: "Attachment file not found." }, 404);
+
+	const headers = new Headers();
+	object.writeHttpMetadata(headers);
+	headers.set("content-length", String(attachment.size));
+	headers.set("etag", object.httpEtag);
+	headers.set(
+		"content-disposition",
+		`${attachment.disposition === "inline" ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(attachment.filename)}`,
+	);
+
+	return new Response(object.body, { headers });
+});
+
+emailRoutes.get("/:id", async (c) => {
+	const db = drizzle(c.env.DB, { schema });
+	const item = await getEmailRecord(db, c.req.param("id"));
+
+	if (!item) return c.json({ error: "Email not found." }, 404);
+
+	const attachments = await db
+		.select()
+		.from(schema.attachments)
+		.where(eq(schema.attachments.email_id, c.req.param("id")))
+		.all();
+
+	return c.json({
+		item: {
+			...item,
+			attachments,
+		},
+	});
+});
+
+emailRoutes.patch("/:id/read", async (c) => {
+	const id = c.req.param("id");
+	const body = await c.req.json<{ read: 0 | 1 }>();
+	if (body.read !== 0 && body.read !== 1) {
+		return c.json({ error: "Invalid email read flag." }, 400);
+	}
+
+	const db = drizzle(c.env.DB, { schema });
+	await db
+		.update(schema.emails)
+		.set({ read: body.read })
+		.where(eq(schema.emails.id, id))
+		.run();
+
+	const item = await getEmailRecord(db, id);
+	if (!item) return c.json({ error: "Email not found." }, 404);
+
+	return c.json({ item });
+});
+
+emailRoutes.delete("/", async (c) => {
+	const ids = [...new Set((await c.req.json<{ ids: string[] }>()).ids.map((id) => id.trim()).filter(Boolean))];
+	if (ids.length === 0) return c.json({ error: "Email ids are required." }, 400);
+
+	const db = drizzle(c.env.DB, { schema });
+	const attachmentRows = await db
+		.select({
+			object_key: schema.attachments.object_key,
+		})
+		.from(schema.attachments)
+		.where(inArray(schema.attachments.email_id, ids))
+		.all();
+
+	const deleted = await db.delete(schema.emails).where(inArray(schema.emails.id, ids)).run();
+
+	if (attachmentRows.length > 0) {
+		try {
+			// 附件行会随着邮件删除而级联消失，但 R2 里的二进制对象必须单独删。
+			await c.env.ATTACHMENTS.delete(attachmentRows.map((row) => row.object_key));
+		} catch (error) {
+			console.error("批量删除邮件后清理 R2 失败", {
+				ids,
+				error,
+			});
+		}
+	}
+
+	return c.json({
+		ok: true,
+		deleted_count: deleted.meta?.changes || 0,
+	});
+});
+
+emailRoutes.delete("/:id", async (c) => {
+	const db = drizzle(c.env.DB, { schema });
+	const emailId = c.req.param("id");
+	const item = await db
+		.select()
+		.from(schema.emails)
+		.where(eq(schema.emails.id, emailId))
+		.get();
+
+	if (!item) return c.json({ error: "Email not found." }, 404);
+
+	const attachmentRows = await db
+		.select({
+			object_key: schema.attachments.object_key,
+		})
+		.from(schema.attachments)
+		.where(eq(schema.attachments.email_id, emailId))
+		.all();
+
+	await db.delete(schema.emails).where(eq(schema.emails.id, emailId)).run();
+
+	if (attachmentRows.length > 0) {
+		try {
+			// 先删数据库再删对象可以保证列表状态立即生效，R2 清理失败只留下可补偿的脏对象。
+			await c.env.ATTACHMENTS.delete(attachmentRows.map((row) => row.object_key));
+		} catch (error) {
+			console.error("删除邮件后清理 R2 失败", {
+				id: emailId,
+				error,
+			});
+		}
+	}
+
+	return c.json({
+		ok: true,
+		deleted_count: 1,
+	});
+});
