@@ -1,6 +1,7 @@
+import { useEffect, useState } from "react";
+import { useAccountsQuery } from "@/api/account";
 import { checkAuth, login } from "@/api/auth";
 import { ApiError, apiUnauthorizedEvent } from "@/api/client";
-import { useAccountsQuery } from "@/api/account";
 import { useEmailsInfiniteQuery } from "@/api/email";
 import { useStatsQuery } from "@/api/stats";
 import Dashboard from "@/components/Dashboard";
@@ -9,7 +10,6 @@ import MailContent from "@/components/MailContent";
 import MailList from "@/components/MailList";
 import Sidebar from "@/components/Sidebar";
 import { useAppStore } from "@/store/useAppStore";
-import { useEffect, useState } from "react";
 
 function hideBootLoading() {
 	const bootLoading = document.getElementById("app-boot-loading");
@@ -67,7 +67,7 @@ function MailboxApp() {
 	]);
 
 	return (
-		<div className="flex h-svh w-full overflow-hidden bg-background font-sans text-foreground selection:bg-primary selection:text-primary-foreground">
+		<div className="flex h-svh w-screen overflow-hidden bg-background font-sans text-foreground selection:bg-primary selection:text-primary-foreground">
 			<Sidebar
 				accounts={accounts}
 				activeAccount={activeAccount}
@@ -80,7 +80,7 @@ function MailboxApp() {
 			{activeAccount === "dashboard" ? (
 				<Dashboard />
 			) : (
-				<div className="relative flex h-full min-w-0 flex-1 overflow-hidden">
+				<main className="relative flex h-full min-w-0 flex-1">
 					<MailList
 						activeAccountId={activeAccount}
 						title={activeAccount === "all" ? "全部邮件" : activeAccountRecord?.remark || activeAccountRecord?.email || "收件箱"}
@@ -99,7 +99,7 @@ function MailboxApp() {
 							setMobileEmailOpen(false);
 						}}
 					/>
-				</div>
+				</main>
 			)}
 		</div>
 	);

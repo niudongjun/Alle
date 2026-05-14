@@ -22,11 +22,8 @@ export default function MailList({ activeAccountId, title, selectedEmailId, onSe
 		limit: 40,
 	});
 	const emails = listQuery.data?.pages.flatMap((page) => page.items) ?? [];
-	const hasNextPage = listQuery.hasNextPage;
-	const isFetchingNextPage = listQuery.isFetchingNextPage;
-	const fetchNextPage = listQuery.fetchNextPage;
 	const virtualizer = useVirtualizer({
-		count: hasNextPage ? emails.length + 1 : emails.length,
+		count: listQuery.hasNextPage ? emails.length + 1 : emails.length,
 		getScrollElement: () => scrollRef.current,
 		estimateSize: () => 88,
 		overscan: 8,
@@ -37,14 +34,17 @@ export default function MailList({ activeAccountId, title, selectedEmailId, onSe
 	}, [activeAccountId, deferredSearchQuery]);
 
 	useEffect(() => {
+		// TanStack Virtual only renders the rows near the viewport. Add one synthetic row when a next
+		// page exists and watch for that placeholder to become the last rendered item. This avoids
+		// brittle scroll-height math and still keeps infinite loading aligned with measured row heights.
 		const lastItem = virtualizer.getVirtualItems().at(-1);
-		if (!lastItem || !hasNextPage || isFetchingNextPage) return;
+		if (!lastItem || !listQuery.hasNextPage || listQuery.isFetchingNextPage) return;
 		if (lastItem.index < emails.length - 1) return;
-		void fetchNextPage();
-	}, [emails.length, fetchNextPage, hasNextPage, isFetchingNextPage, virtualizer]);
+		void listQuery.fetchNextPage();
+	}, [emails.length, listQuery.fetchNextPage, listQuery.hasNextPage, listQuery.isFetchingNextPage, virtualizer]);
 
 	return (
-		<div className="flex h-full min-w-0 flex-1 flex-col bg-background/60 md:w-1/3 md:flex-none">
+		<section className="flex h-full min-w-0 flex-1 flex-col bg-background/60 md:basis-1/3 md:flex-none">
 			<div className="flex shrink-0 flex-col gap-4 px-4 pt-6 pb-4 sm:px-6 sm:pt-6 md:gap-5 md:pt-10">
 				<h1 className="truncate text-lg font-bold tracking-tight text-foreground sm:text-xl md:text-2xl">{title}</h1>
 				<div className="group relative flex items-center">
@@ -58,7 +58,7 @@ export default function MailList({ activeAccountId, title, selectedEmailId, onSe
 					/>
 				</div>
 			</div>
-			<div ref={scrollRef} className="flex-1 overflow-y-auto px-3 pb-4 sm:pb-6 md:px-4 md:pb-10 [&::-webkit-scrollbar]:hidden">
+			<div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-3 pb-4 sm:pb-6 md:px-4 md:pb-10 [&::-webkit-scrollbar]:hidden">
 				{listQuery.isPending ? (
 					<div className="flex h-40 items-center justify-center text-sm font-medium text-muted-foreground">邮件加载中</div>
 				) : listQuery.isError ? (
@@ -133,6 +133,6 @@ export default function MailList({ activeAccountId, title, selectedEmailId, onSe
 					</div>
 				)}
 			</div>
-		</div>
+		</section>
 	);
 }
