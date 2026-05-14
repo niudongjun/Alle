@@ -3,6 +3,11 @@ import { Hono } from "hono";
 export const statsRoutes = new Hono<{ Bindings: Env }>();
 
 statsRoutes.get("/", async (c) => {
+	const todayStart = Number(c.req.query("today_start"));
+	if (!Number.isInteger(todayStart) || todayStart <= 0) {
+		return c.json({ error: "Invalid stats today_start." }, 400);
+	}
+	const start = todayStart - 6 * 86400;
 	const [summary, dailyResult] = await Promise.all([
 		c.env.DB.prepare(`
 			SELECT
@@ -14,33 +19,27 @@ statsRoutes.get("/", async (c) => {
 			total_account_count: number;
 			unread_email_count: number;
 		}>(),
+		// 前端传来的 today_start 已经是浏览器本地今天零点的 Unix 秒，
+		// 这里直接减掉 6 天后按 86400 秒分桶，就能得到最近 7 个本地自然日的数量。
 		c.env.DB.prepare(`
 			SELECT
-				strftime('%Y-%m-%d', sent_at, 'unixepoch') AS day,
+				CAST((sent_at - ?) / 86400 AS INTEGER) AS day_index,
 				COUNT(*) AS count
 			FROM emails
-			WHERE sent_at >= unixepoch('now', '-6 days', 'start of day')
-				AND sent_at < unixepoch('now', '+1 day', 'start of day')
-			GROUP BY strftime('%Y-%m-%d', sent_at, 'unixepoch')
-			ORDER BY day ASC
-		`).all<{ day: string; count: number }>(),
+			WHERE sent_at >= ? AND sent_at < ?
+			GROUP BY day_index
+			ORDER BY day_index ASC
+		`).bind(start, start, todayStart + 86400).all<{ day_index: number; count: number }>(),
 	]);
-	const today = new Date();
-	today.setUTCHours(0, 0, 0, 0);
-	const dailyCountMap = new Map((dailyResult.results || []).map((row) => [row.day, Number(row.count) || 0]));
+	const dailyReceivedCounts = [0, 0, 0, 0, 0, 0, 0];
+	for (const row of dailyResult.results || []) {
+		dailyReceivedCounts[row.day_index] = row.count;
+	}
 
 	return c.json({
-		total_email_count: Number(summary?.total_email_count) || 0,
-		total_account_count: Number(summary?.total_account_count) || 0,
-		unread_email_count: Number(summary?.unread_email_count) || 0,
-		daily_received_counts: Array.from({ length: 7 }, (_, index) => {
-			const day = new Date(today);
-			day.setUTCDate(today.getUTCDate() - 6 + index);
-			const key = day.toISOString().slice(0, 10);
-			return {
-				day: key,
-				count: dailyCountMap.get(key) || 0,
-			};
-		}),
+		total_email_count: summary?.total_email_count ?? 0,
+		total_account_count: summary?.total_account_count ?? 0,
+		unread_email_count: summary?.unread_email_count ?? 0,
+		daily_received_counts: dailyReceivedCounts,
 	});
 });
