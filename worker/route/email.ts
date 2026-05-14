@@ -58,13 +58,12 @@ emailRoutes.get("/", async (c) => {
 	}
 
 	const db = drizzle(c.env.DB, { schema });
-	// 当前没有单独的收件时间主键，自增 rowid 是最稳定的无限滚动游标。
 	const rows = await db
 		.select({
 			cursor: sql<number>`emails.rowid`,
 			id: schema.emails.id,
 			from_name: schema.emails.from_name,
-			date: schema.emails.date,
+			sent_at: schema.emails.sent_at,
 			subject: schema.emails.subject,
 			read: schema.emails.read,
 		})
@@ -82,7 +81,7 @@ emailRoutes.get("/", async (c) => {
 		items: page.map((email) => ({
 			id: email.id,
 			from_name: email.from_name,
-			date: email.date,
+			sent_at: email.sent_at,
 			subject: email.subject,
 			read: email.read,
 		})),

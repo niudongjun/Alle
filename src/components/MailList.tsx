@@ -3,30 +3,6 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { Circle, Search } from "lucide-react";
 import { useDeferredValue, useEffect, useRef, useState } from "react";
 
-function parseEmailDate(value: string | null) {
-	if (!value) return null;
-	const match = value.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/);
-	if (!match) {
-		const date = new Date(value);
-		return Number.isNaN(date.getTime()) ? null : date;
-	}
-	const [, year, month, day, hour, minute, second] = match;
-	return new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second)));
-}
-
-function formatEmailDate(value: string | null) {
-	const date = parseEmailDate(value);
-	if (!date) return "";
-	const now = new Date();
-	if (date.toDateString() === now.toDateString()) {
-		return new Intl.DateTimeFormat("zh-CN", { hour: "2-digit", minute: "2-digit" }).format(date);
-	}
-	if (date.getFullYear() === now.getFullYear()) {
-		return new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric" }).format(date);
-	}
-	return new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "numeric", day: "numeric" }).format(date);
-}
-
 type MailListProps = {
 	activeAccountId: string;
 	title: string;
@@ -108,6 +84,16 @@ export default function MailList({ activeAccountId, title, selectedEmailId, onSe
 							}
 
 							const isSelected = selectedEmailId === email.id;
+							const now = new Date();
+							const sentAt = new Date(email.sent_at * 1000);
+							const sentAtLabel = sentAt.toLocaleString(
+								undefined,
+								sentAt.toDateString() === now.toDateString()
+									? { hour: "2-digit", minute: "2-digit" }
+									: sentAt.getFullYear() === now.getFullYear()
+										? { month: "numeric", day: "numeric" }
+										: { year: "numeric", month: "numeric", day: "numeric" },
+							);
 
 							return (
 								<div
@@ -133,7 +119,7 @@ export default function MailList({ activeAccountId, title, selectedEmailId, onSe
 											<div className="flex shrink-0 items-center gap-1.5">
 												{email.read === 0 && <Circle size={8} className="fill-current text-chart-1" />}
 												<span className={`text-xs ${isSelected ? "text-muted-foreground" : "text-muted-foreground/70"}`}>
-													{formatEmailDate(email.date)}
+													{sentAtLabel}
 												</span>
 											</div>
 										</div>

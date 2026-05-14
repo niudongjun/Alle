@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS emails (
   recipient TEXT, -- To 原始内容，通常保存收件人列表文本或 JSON 字符串
   cc TEXT, -- Cc 原始内容，通常保存抄送列表文本或 JSON 字符串
   bcc TEXT, -- Bcc 原始内容，通常保存密送列表文本或 JSON 字符串
-  date TEXT, -- 邮件声明的发送时间，入库时统一转为 SQLite 可直接排序的 UTC 日期时间字符串
+  sent_at INTEGER, -- 邮件声明的发送时间，入库时统一转为 UTC 秒级时间戳
   body TEXT, -- 邮件正文，优先保存 HTML，没有 HTML 时回退保存纯文本
   raw_headers TEXT, -- 原始邮件头全文，便于排查解析问题
   read INTEGER NOT NULL DEFAULT 0 CHECK (read IN (0, 1)), -- 是否已读，0 表示未读，1 表示已读
@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS attachments (
 
 CREATE INDEX IF NOT EXISTS idx_accounts_sort_order ON accounts(sort_order, id);
 CREATE INDEX IF NOT EXISTS idx_emails_account_id ON emails(account_id);
-CREATE INDEX IF NOT EXISTS idx_emails_date ON emails(date DESC);
-CREATE INDEX IF NOT EXISTS idx_emails_account_date ON emails(account_id, date DESC);
+CREATE INDEX IF NOT EXISTS idx_emails_sent_at ON emails(sent_at DESC);
+CREATE INDEX IF NOT EXISTS idx_emails_account_sent_at ON emails(account_id, sent_at DESC);
 CREATE INDEX IF NOT EXISTS idx_emails_read ON emails(read);
 CREATE INDEX IF NOT EXISTS idx_attachments_email_id ON attachments(email_id);

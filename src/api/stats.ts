@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "./client";
 
 export type StatsDailyReceivedCount = {
-	date: string;
+	day: string;
 	count: number;
 };
 

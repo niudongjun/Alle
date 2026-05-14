@@ -40,7 +40,7 @@ export default function Dashboard() {
 					<div className="mb-6 text-sm font-semibold tracking-widest text-muted-foreground uppercase md:mb-8">最近 7 天</div>
 					<div className="flex flex-1 items-end gap-2 sm:gap-3 md:gap-6">
 						{activity.map((item) => (
-							<div key={item.date} className="group relative flex h-full flex-1 items-end rounded-t-lg bg-secondary transition-colors duration-300 hover:bg-primary">
+							<div key={item.day} className="group relative flex h-full flex-1 items-end rounded-t-lg bg-secondary transition-colors duration-300 hover:bg-primary">
 								<div className="w-full rounded-t-lg bg-primary/5 transition-colors duration-300 group-hover:bg-primary" style={{ height: `${item.count === 0 ? 8 : Math.max(12, item.count / peak * 100)}%` }}></div>
 								<div className="absolute -top-9 left-1/2 hidden -translate-x-1/2 translate-y-2 text-sm font-bold text-foreground opacity-0 transition-all group-hover:translate-y-0 group-hover:opacity-100 sm:block md:-top-10 md:text-base">{item.count}</div>
 							</div>
@@ -48,7 +48,7 @@ export default function Dashboard() {
 					</div>
 					<div className="mt-2 flex gap-2 text-[10px] font-semibold tracking-[0.18em] text-muted-foreground uppercase sm:gap-3 sm:text-sm md:mt-6 md:gap-6">
 						{activity.map((item) => (
-							<span key={item.date} className="flex-1 text-center">{new Date(`${item.date}T00:00:00Z`).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric", timeZone: "UTC" })}</span>
+							<span key={item.day} className="flex-1 text-center">{new Date(`${item.day}T00:00:00Z`).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric", timeZone: "UTC" })}</span>
 						))}
 					</div>
 				</div>

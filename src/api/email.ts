@@ -17,7 +17,7 @@ export type EmailListItem = {
 	id: string;
 	subject: string | null;
 	from_name: string | null;
-	date: string | null;
+	sent_at: number;
 	read: number;
 };
 
@@ -31,7 +31,7 @@ export type EmailRecord = {
 	recipient: string | null;
 	cc: string | null;
 	bcc: string | null;
-	date: string | null;
+	sent_at: number;
 	read: number;
 	snippet: string | null;
 	body: string | null;

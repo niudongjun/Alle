@@ -16,30 +16,29 @@ statsRoutes.get("/", async (c) => {
 		}>(),
 		c.env.DB.prepare(`
 			SELECT
-				substr(date, 1, 10) AS date,
+				strftime('%Y-%m-%d', sent_at, 'unixepoch') AS day,
 				COUNT(*) AS count
 			FROM emails
-			-- recv.ts 入库时已经把 date 统一转成 UTC 的 SQLite 日期字符串，这里直接按天截断聚合。
-			WHERE date >= datetime('now', '-6 days', 'start of day')
-				AND date < datetime('now', '+1 day', 'start of day')
-			GROUP BY substr(date, 1, 10)
-			ORDER BY date ASC
-		`).all<{ date: string; count: number }>(),
+			WHERE sent_at >= unixepoch('now', '-6 days', 'start of day')
+				AND sent_at < unixepoch('now', '+1 day', 'start of day')
+			GROUP BY strftime('%Y-%m-%d', sent_at, 'unixepoch')
+			ORDER BY day ASC
+		`).all<{ day: string; count: number }>(),
 	]);
 	const today = new Date();
 	today.setUTCHours(0, 0, 0, 0);
-	const dailyCountMap = new Map((dailyResult.results || []).map((row) => [row.date, Number(row.count) || 0]));
+	const dailyCountMap = new Map((dailyResult.results || []).map((row) => [row.day, Number(row.count) || 0]));
 
 	return c.json({
 		total_email_count: Number(summary?.total_email_count) || 0,
 		total_account_count: Number(summary?.total_account_count) || 0,
 		unread_email_count: Number(summary?.unread_email_count) || 0,
 		daily_received_counts: Array.from({ length: 7 }, (_, index) => {
-			const date = new Date(today);
-			date.setUTCDate(today.getUTCDate() - 6 + index);
-			const key = date.toISOString().slice(0, 10);
+			const day = new Date(today);
+			day.setUTCDate(today.getUTCDate() - 6 + index);
+			const key = day.toISOString().slice(0, 10);
 			return {
-				date: key,
+				day: key,
 				count: dailyCountMap.get(key) || 0,
 			};
 		}),

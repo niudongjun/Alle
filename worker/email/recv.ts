@@ -85,9 +85,9 @@ function sanitizeFilename(value: string | null | undefined): string {
 	return sanitized;
 }
 
-function normalizeEmailDate(value: string | null | undefined): string {
-	const date = value ? new Date(value) : new Date();
-	return (Number.isNaN(date.getTime()) ? new Date() : date).toISOString().slice(0, 19).replace("T", " ");
+function normalizeEmailSentAt(value: string | null | undefined): number {
+	const sentAt = value ? new Date(value).getTime() : Date.now();
+	return Math.floor((Number.isNaN(sentAt) ? Date.now() : sentAt) / 1000);
 }
 
 function errorSummary(error: unknown): { name: string; message: string; stack?: string } {
@@ -251,8 +251,7 @@ export async function emailHandler(
 			recipient: headerValue(message.headers, "to") || formatAddressList(parsed.to),
 			cc: headerValue(message.headers, "cc") || formatAddressList(parsed.cc),
 			bcc: headerValue(message.headers, "bcc") || formatAddressList(parsed.bcc),
-			// 入库时统一转为 SQLite 可直接排序和聚合的 UTC 日期时间字符串。
-			date: normalizeEmailDate(headerValue(message.headers, "date")),
+			sent_at: normalizeEmailSentAt(headerValue(message.headers, "date")),
 			body: parsed.html || parsed.text || null,
 			raw_headers: JSON.stringify(Array.from(message.headers.entries())),
 			read: 0 as const,
