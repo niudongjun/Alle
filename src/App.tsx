@@ -82,12 +82,11 @@ function MailboxApp() {
 			) : (
 				<main className="relative flex h-full min-w-0 flex-1">
 					<MailList
-						activeAccountId={activeAccount}
-						title={activeAccount === "all" ? "全部邮件" : activeAccountRecord?.remark || activeAccountRecord?.email || "收件箱"}
+						account={activeAccount === "all" ? null : activeAccountRecord || null}
 						selectedEmailId={selectedEmailId}
-						onSelectEmail={(emailId, openInMobile) => {
+						onSelectEmail={(emailId) => {
 							setSelectedEmailId(emailId);
-							if (openInMobile) setMobileEmailOpen(true);
+							setMobileEmailOpen(true);
 						}}
 					/>
 					<MailContent

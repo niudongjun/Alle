@@ -1,23 +1,26 @@
+import { useUpdateAccountMutation, type Account } from "@/api/account";
 import { useEmailsInfiniteQuery, useUpdateEmailReadMutation } from "@/api/email";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Circle, Search } from "lucide-react";
 import { useDeferredValue, useEffect, useRef, useState } from "react";
 
 type MailListProps = {
-	activeAccountId: string;
-	title: string;
+	account: Account | null;
 	selectedEmailId: string | null;
-	onSelectEmail: (emailId: string, openInMobile: boolean) => void;
+	onSelectEmail: (emailId: string) => void;
 };
 
-export default function MailList({ activeAccountId, title, selectedEmailId, onSelectEmail }: MailListProps) {
+export default function MailList({ account, selectedEmailId, onSelectEmail }: MailListProps) {
 	const [searchQuery, setSearchQuery] = useState("");
+	const [editingRemark, setEditingRemark] = useState(false);
+	const [remarkDraft, setRemarkDraft] = useState(account?.remark ?? "");
 	const deferredSearchQuery = useDeferredValue(searchQuery);
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const updateRead = useUpdateEmailReadMutation();
+	const updateAccount = useUpdateAccountMutation();
 	const searchText = deferredSearchQuery.trim();
 	const listQuery = useEmailsInfiniteQuery({
-		account_id: activeAccountId === "all" ? null : activeAccountId,
+		account_id: account?.id ?? null,
 		q: searchText || null,
 		limit: 40,
 	});
@@ -28,10 +31,27 @@ export default function MailList({ activeAccountId, title, selectedEmailId, onSe
 		estimateSize: () => 88,
 		overscan: 8,
 	});
+	const saveRemark = () => {
+		if (!account || updateAccount.isPending) return;
+		const nextRemark = remarkDraft.trim() || null;
+		if (nextRemark === account.remark) {
+			setEditingRemark(false);
+			setRemarkDraft(account.remark ?? "");
+			return;
+		}
+		updateAccount.mutate({ id: account.id, body: { remark: nextRemark } }, { onSuccess: () => setEditingRemark(false) });
+	};
 
 	useEffect(() => {
 		scrollRef.current?.scrollTo({ top: 0 });
-	}, [activeAccountId, deferredSearchQuery]);
+	}, [account?.id, deferredSearchQuery]);
+
+	useEffect(() => {
+		// The mailbox view stays mounted while users jump between accounts. Reset the inline editor
+		// whenever the backing account changes so a half-typed remark never leaks into another tab.
+		setEditingRemark(false);
+		setRemarkDraft(account?.remark ?? "");
+	}, [account]);
 
 	useEffect(() => {
 		// TanStack Virtual only renders the rows near the viewport. Add one synthetic row when a next
@@ -46,7 +66,34 @@ export default function MailList({ activeAccountId, title, selectedEmailId, onSe
 	return (
 		<section className="flex h-full min-w-0 flex-1 flex-col bg-background/60 md:basis-1/3 md:flex-none">
 			<div className="flex shrink-0 flex-col gap-4 px-4 pt-6 pb-4 sm:px-6 sm:pt-6 md:gap-5 md:pt-10">
-				<h1 className="truncate text-lg font-bold tracking-tight text-foreground sm:text-xl md:text-2xl">{title}</h1>
+				<div className="h-10 sm:h-11 md:h-12">
+					<input
+						type="text"
+						value={editingRemark ? remarkDraft : account?.remark || account?.email || "全部邮件"}
+						readOnly={!account || !editingRemark}
+						onFocus={() => {
+							if (!account || editingRemark) return;
+							setEditingRemark(true);
+							setRemarkDraft(account.remark ?? "");
+						}}
+						onChange={(event) => setRemarkDraft(event.target.value)}
+						onBlur={saveRemark}
+						onKeyDown={(event) => {
+							// Chinese IMEs also use Enter to confirm the current candidate. Ignore that
+							// composition phase so saving only happens after the final text is committed.
+							if (event.nativeEvent.isComposing) return;
+							if (event.key === "Escape") {
+								setEditingRemark(false);
+								setRemarkDraft(account?.remark ?? "");
+								return;
+							}
+							if (event.key !== "Enter") return;
+							event.currentTarget.blur();
+						}}
+						placeholder={account?.email || "备注"}
+						className={`h-full w-full min-w-0 appearance-none rounded-lg px-3 py-0 text-lg leading-none font-bold tracking-tight text-foreground outline-none transition-colors sm:text-xl md:text-2xl ${editingRemark ? "bg-secondary focus:bg-muted" : "bg-transparent"} ${account ? "cursor-text" : ""}`}
+					/>
+				</div>
 				<div className="group relative flex items-center">
 					<Search size={16} className="pointer-events-none absolute left-4 text-muted-foreground transition-colors group-focus-within:text-foreground" />
 					<input
@@ -107,7 +154,7 @@ export default function MailList({ activeAccountId, title, selectedEmailId, onSe
 										onClick={() => {
 											// Selection should feel immediate. Fire the read mutation in parallel so the
 											// drawer opens at once while the unread dot and weight update from cache refresh.
-											onSelectEmail(email.id, true);
+											onSelectEmail(email.id);
 											if (email.read === 0) updateRead.mutate({ id: email.id, read: 1 });
 										}}
 										className={`group cursor-pointer rounded-xl p-4 transition-all duration-200 outline-none md:p-5 ${isSelected ? "bg-card shadow-sm" : "hover:bg-secondary"}`}
