@@ -6,8 +6,7 @@ import { useEmailsInfiniteQuery } from "@/api/email";
 import { useStatsQuery } from "@/api/stats";
 import Dashboard from "@/components/Dashboard";
 import LoginPage from "@/components/LoginPage";
-import MailContent from "@/components/MailContent";
-import MailList from "@/components/MailList";
+import MailboxPane from "@/components/MailboxPane";
 import Sidebar from "@/components/Sidebar";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -22,12 +21,9 @@ function hideBootLoading() {
 function MailboxApp() {
 	const activeAccount = useAppStore((state) => state.activeAccount);
 	const setActiveAccount = useAppStore((state) => state.setActiveAccount);
-	const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
-	const [mobileEmailOpen, setMobileEmailOpen] = useState(false);
 	const accountsQuery = useAccountsQuery();
 	const statsQuery = useStatsQuery();
-	const accounts = accountsQuery.data ?? [];
-	const activeAccountRecord = accounts.find((account) => account.id === activeAccount);
+	const activeAccountRecord = accountsQuery.data?.find((account) => account.id === activeAccount);
 	const emailsQuery = useEmailsInfiniteQuery(
 		{
 			account_id: activeAccount === "dashboard" || activeAccount === "all" ? null : activeAccount,
@@ -68,37 +64,11 @@ function MailboxApp() {
 
 	return (
 		<div className="flex h-svh w-screen overflow-hidden bg-background font-sans text-foreground selection:bg-primary selection:text-primary-foreground">
-			<Sidebar
-				accounts={accounts}
-				activeAccount={activeAccount}
-				onSelectAccount={(accountId) => {
-					setActiveAccount(accountId);
-					setSelectedEmailId(null);
-					setMobileEmailOpen(false);
-				}}
-			/>
+			<Sidebar />
 			{activeAccount === "dashboard" ? (
 				<Dashboard />
 			) : (
-				<main className="relative flex h-full min-w-0 flex-1">
-					<MailList
-						account={activeAccount === "all" ? null : activeAccountRecord || null}
-						selectedEmailId={selectedEmailId}
-						onSelectEmail={(emailId) => {
-							setSelectedEmailId(emailId);
-							setMobileEmailOpen(true);
-						}}
-					/>
-					<MailContent
-						selectedEmailId={selectedEmailId}
-						mobileEmailOpen={mobileEmailOpen}
-						onCloseMobile={() => setMobileEmailOpen(false)}
-						onDeleteEmail={() => {
-							setSelectedEmailId(null);
-							setMobileEmailOpen(false);
-						}}
-					/>
-				</main>
+				<MailboxPane />
 			)}
 		</div>
 	);

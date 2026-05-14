@@ -1,10 +1,11 @@
 import { PointerActivationConstraints } from "@dnd-kit/dom";
 import { PointerSensor, DragDropProvider } from "@dnd-kit/react";
 import { isSortableOperation, useSortable } from "@dnd-kit/react/sortable";
-import { useUpdateAccountSortMutation, type Account } from "@/api/account";
+import { useAccountsQuery, useUpdateAccountSortMutation, type Account } from "@/api/account";
 import { useQueryClient } from "@tanstack/react-query";
 import { Inbox, LayoutDashboard, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useAppStore } from "@/store/useAppStore";
 
 const accountSortSensors = [
 	// Keep the sortable element on the whole row so DOM reordering moves the tooltip together.
@@ -62,15 +63,10 @@ function SortableAccountButton({
 	);
 }
 
-export default function Sidebar({
-	accounts,
-	activeAccount,
-	onSelectAccount,
-}: {
-	accounts: Account[];
-	activeAccount: string;
-	onSelectAccount: (accountId: string) => void;
-}) {
+export default function Sidebar() {
+	const activeAccount = useAppStore((state) => state.activeAccount);
+	const setActiveAccount = useAppStore((state) => state.setActiveAccount);
+	const accounts = useAccountsQuery().data ?? [];
 	const [isRefreshing, setIsRefreshing] = useState(false);
 	const [orderedAccounts, setOrderedAccounts] = useState(accounts);
 	const queryClient = useQueryClient();
@@ -109,7 +105,7 @@ export default function Sidebar({
 				<div className="relative">
 					<button
 						type="button"
-						onClick={() => onSelectAccount("dashboard")}
+						onClick={() => setActiveAccount("dashboard")}
 						className={`peer flex h-12 w-12 items-center justify-center rounded-full transition-all duration-300 ease-out outline-none ${activeAccount === "dashboard" ? "bg-card ring-2 ring-inset ring-chart-3" : "bg-chart-3/12"} text-chart-3`}
 					>
 						<LayoutDashboard size={20} strokeWidth={activeAccount === "dashboard" ? 2.5 : 2} />
@@ -121,7 +117,7 @@ export default function Sidebar({
 				<div className="relative">
 					<button
 						type="button"
-						onClick={() => onSelectAccount("all")}
+						onClick={() => setActiveAccount("all")}
 						className={`peer flex h-12 w-12 items-center justify-center rounded-full transition-all duration-300 ease-out outline-none ${activeAccount === "all" ? "bg-card ring-2 ring-inset ring-chart-5" : "bg-chart-5/12"} text-chart-5`}
 					>
 						<Inbox size={20} strokeWidth={activeAccount === "all" ? 2.5 : 2} />
@@ -166,7 +162,7 @@ export default function Sidebar({
 									account={account}
 									activeAccount={activeAccount}
 									index={index}
-									onSelectAccount={onSelectAccount}
+									onSelectAccount={setActiveAccount}
 									disabled={updateAccountSortMutation.isPending}
 								/>
 							))}

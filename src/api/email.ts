@@ -80,15 +80,9 @@ function buildEmailListQuery(filters: EmailListFilters, cursor?: string | null):
 	return query ? `/api/emails?${query}` : "/api/emails";
 }
 
-export const emailQueryKeys = {
-	all: ["emails"] as const,
-	list: (filters: EmailListFilters = {}) => [...emailQueryKeys.all, "list", filters] as const,
-	detail: (id: string) => [...emailQueryKeys.all, "detail", id] as const,
-};
-
 export function useEmailsInfiniteQuery(filters: EmailListFilters = {}, enabled = true) {
 	return useInfiniteQuery({
-		queryKey: emailQueryKeys.list(filters),
+		queryKey: ["emails", "list", filters] as const,
 		enabled,
 		initialPageParam: null as string | null,
 		queryFn: ({ pageParam, signal }) => apiRequest<EmailListResponse>(buildEmailListQuery(filters, pageParam), { signal }),
@@ -98,7 +92,7 @@ export function useEmailsInfiniteQuery(filters: EmailListFilters = {}, enabled =
 
 export function useEmailQuery(id: string | null | undefined) {
 	return useQuery({
-		queryKey: emailQueryKeys.detail(id || ""),
+		queryKey: ["emails", "detail", id || ""] as const,
 		queryFn: async () => (await apiRequest<EmailDetailResponse>(`/api/emails/${id}`)).item,
 		enabled: Boolean(id),
 	});
@@ -112,10 +106,10 @@ export function useUpdateEmailReadMutation() {
 				body: { read },
 			})).item,
 		onSuccess: (item) => {
-			queryClient.setQueryData(emailQueryKeys.detail(item.id), (previous: EmailDetail | undefined) =>
+			queryClient.setQueryData(["emails", "detail", item.id] as const, (previous: EmailDetail | undefined) =>
 				previous ? { ...item, attachments: previous.attachments } : previous
 			);
-			queryClient.invalidateQueries({ queryKey: emailQueryKeys.all });
+			queryClient.invalidateQueries({ queryKey: ["emails"] as const });
 			queryClient.invalidateQueries({ queryKey: ["stats"] });
 		},
 	});
@@ -126,12 +120,12 @@ export function useDeleteEmailMutation() {
 		mutationFn: ({ id }: { id: string }) =>
 			apiRequest<DeleteEmailResponse>(`/api/emails/${id}`, { method: "DELETE" }),
 		onSuccess: (_, variables) => {
-			queryClient.removeQueries({ queryKey: emailQueryKeys.detail(variables.id) });
+			queryClient.removeQueries({ queryKey: ["emails", "detail", variables.id] as const });
 			queryClient.setQueriesData(
 				{
 					predicate: (query) =>
 						Array.isArray(query.queryKey) &&
-						query.queryKey[0] === emailQueryKeys.all[0] &&
+						query.queryKey[0] === "emails" &&
 						query.queryKey[1] === "list",
 				},
 				(previous: InfiniteData<EmailListResponse> | undefined) =>
@@ -145,7 +139,7 @@ export function useDeleteEmailMutation() {
 						}
 						: previous,
 			);
-			queryClient.invalidateQueries({ queryKey: emailQueryKeys.all });
+			queryClient.invalidateQueries({ queryKey: ["emails"] as const });
 			queryClient.invalidateQueries({ queryKey: ["stats"] });
 		},
 	});
