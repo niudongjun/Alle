@@ -5,7 +5,6 @@ export type Account = {
 	id: string;
 	email: string;
 	remark: string | null;
-	avatar_key: string | null;
 	sort_order: number;
 };
 

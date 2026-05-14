@@ -68,7 +68,7 @@ export default function Sidebar({
 				<div className="relative min-h-0 w-12 flex-1">
 					<div className="absolute inset-y-0 left-0 flex w-max flex-col gap-5 overflow-y-auto py-1 md:pointer-events-none md:gap-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 						{accounts.map((account, index) => {
-							const label = account.remark || account.email;
+							const label = account.remark?.trim() || account.email;
 							const isActive = activeAccount === account.id;
 
 							return (
@@ -84,7 +84,7 @@ export default function Sidebar({
 										][index % 4]}`}
 									>
 										<span className={`text-lg leading-none tracking-tighter ${isActive ? "font-bold" : "font-semibold"}`}>
-											{label.trim().charAt(0).toUpperCase() || account.email.charAt(0).toUpperCase()}
+											{Array.from(new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(label))[0]?.segment?.toUpperCase()}
 										</span>
 									</button>
 									<div className="pointer-events-none hidden translate-x-[-10px] whitespace-nowrap rounded-sm bg-foreground px-3.5 py-2 text-xs font-medium text-background opacity-0 transition-all duration-300 peer-hover:translate-x-0 peer-hover:opacity-100 peer-focus-visible:translate-x-0 peer-focus-visible:opacity-100 md:block">

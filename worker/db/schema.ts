@@ -4,7 +4,6 @@ export const accounts = sqliteTable("accounts", {
 	id: text("id").primaryKey(),
 	email: text("email").notNull(),
 	remark: text("remark"),
-	avatar_key: text("avatar_key"),
 	sort_order: integer("sort_order").notNull().default(0),
 });
 

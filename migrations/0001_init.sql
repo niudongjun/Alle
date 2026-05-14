@@ -4,7 +4,6 @@ CREATE TABLE IF NOT EXISTS accounts (
   id TEXT PRIMARY KEY, -- 账号唯一标识，建议使用 UUID 或稳定字符串
   email TEXT NOT NULL UNIQUE, -- 账号对应的真实邮箱地址
   remark TEXT, -- 账号备注，用于前端展示或辅助区分账号
-  avatar_key TEXT, -- 账号头像在 R2 中的对象 key
   sort_order INTEGER NOT NULL DEFAULT 0 -- 侧边栏排序值，数值越小越靠前
 );
 
