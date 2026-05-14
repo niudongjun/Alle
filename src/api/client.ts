@@ -9,7 +9,7 @@ export const queryClient = new QueryClient({
 	},
 });
 
-type RequestMethod = "GET" | "POST" | "PATCH" | "DELETE";
+type RequestMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 type RequestOptions = {
 	method?: RequestMethod;

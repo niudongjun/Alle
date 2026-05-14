@@ -84,26 +84,16 @@ accountRoutes.put("/sort", async (c) => {
 
 accountRoutes.put("/:id", async (c) => {
 	const id = c.req.param("id");
-	const body = await c.req.json<{ email: string; remark: string | null }>();
-	const email = body.email.trim().toLowerCase();
-	if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-		return c.json({ error: "Invalid account email." }, 400);
-	}
+	const body = await c.req.json<{ remark: string | null }>();
 	const db = drizzle(c.env.DB, { schema });
 
-	try {
-		await db
-			.update(schema.accounts)
-			.set({
-				email,
-				remark: body.remark?.trim() || null,
-			})
-			.where(eq(schema.accounts.id, id))
-			.run();
-	} catch (error) {
-		if (error instanceof Error && /unique/i.test(error.message)) return c.json({ error: "Account email already exists." }, 409);
-		throw error;
-	}
+	await db
+		.update(schema.accounts)
+		.set({
+			remark: body.remark?.trim() || null,
+		})
+		.where(eq(schema.accounts.id, id))
+		.run();
 
 	const item = await db
 		.select()
