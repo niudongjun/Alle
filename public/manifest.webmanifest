@@ -74,19 +74,37 @@
       "src": "/screenshots/mobile-1.png",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "移动端界面"
+      "label": "移动端登录"
     },
     {
       "src": "/screenshots/mobile-2.png",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "移动端设置界面"
+      "label": "移动端概览"
+    },
+    {
+      "src": "/screenshots/mobile-3.png",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "移动端邮件"
     },
     {
       "src": "/screenshots/desktop-1.png",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "桌面端界面"
+      "label": "桌面端登录"
+    },
+    {
+      "src": "/screenshots/desktop-2.png",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "桌面端概览"
+    },
+    {
+      "src": "/screenshots/desktop-3.png",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "桌面端邮件"
     }
   ]
 }

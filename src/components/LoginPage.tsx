@@ -10,10 +10,9 @@ export default function LoginPage({ onSuccess }: { onSuccess: () => void }) {
 	const [error, setError] = useState<string | null>(null);
 
 	return (
-		<div className="flex min-h-svh items-center justify-center bg-background px-6 py-8 text-foreground selection:bg-primary selection:text-primary-foreground">
+		<div className="flex min-h-svh items-center justify-center bg-background px-8 text-foreground selection:bg-primary selection:text-primary-foreground">
 			<div className="w-full max-w-md">
-				<div className="mb-10">
-					<div className="text-xs font-semibold tracking-[0.24em] text-muted-foreground uppercase">Alle</div>
+				<div className="mb-10 mx-2">
 					<h1 className="mt-4 text-3xl font-black tracking-tight text-foreground sm:text-4xl">登录</h1>
 					<p className="mt-3 text-sm leading-6 text-muted-foreground">输入密钥后进入邮件面板。</p>
 				</div>

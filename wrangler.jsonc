@@ -20,8 +20,8 @@
 	"d1_databases": [
 		{
 			"binding": "DB",
-			"database_name": "allev2",
-			"database_id": "1bfdf532-fa42-4373-80b4-c822b9c3bc45",
+			"database_name": "alle",
+			"database_id": "fa808d75-9274-43be-8b55-c8f29805b251",
 			"remote": false
 		}
 	],

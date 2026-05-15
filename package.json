@@ -8,11 +8,11 @@
 		"build": "tsc -b && vite build",
 		"lint": "eslint .",
 		"preview": "pnpm run build && vite preview",
-		"deploy": "pnpm run build && wrangler deploy",
+		"deploy": "pnpm run db:migrations:apply && pnpm run build && wrangler deploy",
 		"cf-typegen": "wrangler types",
 		"secret": "wrangler secret  bulk .dev.vars",
-		"db:init": "wrangler d1 migrations apply DB --local",
-		"db:init:remote": "wrangler d1 migrations apply DB --remote"
+		"db:migrations:apply:local": "yes | wrangler d1 migrations apply DB --local",
+		"db:migrations:apply": "yes | wrangler d1 migrations apply DB --remote"
 	},
 	"dependencies": {
 		"@dnd-kit/dom": "^0.4.0",
