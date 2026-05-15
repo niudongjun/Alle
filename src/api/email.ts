@@ -43,25 +43,10 @@ export type EmailDetail = EmailRecord & {
 	attachments: EmailAttachment[];
 };
 
-export type EmailListFilters = {
-	account_id?: string | null;
-	read?: 0 | 1 | null;
-	q?: string | null;
-	limit?: number;
-};
-
 type EmailListResponse = {
 	items: EmailListItem[];
 	next_cursor: string | null;
 	has_more: boolean;
-};
-
-type EmailDetailResponse = {
-	item: EmailDetail;
-};
-
-type EmailRecordResponse = {
-	item: EmailRecord;
 };
 
 type DeleteEmailResponse = {
@@ -69,31 +54,41 @@ type DeleteEmailResponse = {
 	deleted_count: number;
 };
 
-function buildEmailListQuery(filters: EmailListFilters, cursor?: string | null): string {
-	const search = new URLSearchParams();
-	if (filters.account_id) search.set("account_id", filters.account_id);
-	if (filters.read !== undefined && filters.read !== null) search.set("read", String(filters.read));
-	if (filters.q) search.set("q", filters.q);
-	if (filters.limit) search.set("limit", String(filters.limit));
-	if (cursor) search.set("cursor", cursor);
-	const query = search.toString();
-	return query ? `/api/emails?${query}` : "/api/emails";
+export function prefetchEmailsInfiniteQuery(accountId: string | null) {
+	return queryClient.prefetchInfiniteQuery({
+		queryKey: ["emails", "list", accountId || "", ""] as const,
+		initialPageParam: null as string | null,
+		queryFn: ({ pageParam, signal }) => {
+			const search = new URLSearchParams();
+			if (accountId) search.set("account_id", accountId);
+			if (pageParam) search.set("cursor", pageParam);
+			return apiRequest<EmailListResponse>(`/api/emails?${search.toString()}`, { signal });
+		},
+		getNextPageParam: (lastPage: EmailListResponse) => lastPage.next_cursor,
+	});
 }
 
-export function useEmailsInfiniteQuery(filters: EmailListFilters = {}, enabled = true) {
+export function useEmailsInfiniteQuery(accountId: string | null, q = "", enabled = true) {
+	const searchText = q.trim();
 	return useInfiniteQuery({
-		queryKey: ["emails", "list", filters] as const,
+		queryKey: ["emails", "list", accountId || "", searchText] as const,
 		enabled,
 		initialPageParam: null as string | null,
-		queryFn: ({ pageParam, signal }) => apiRequest<EmailListResponse>(buildEmailListQuery(filters, pageParam), { signal }),
-		getNextPageParam: (lastPage) => lastPage.next_cursor,
+		queryFn: ({ pageParam, signal }) => {
+			const search = new URLSearchParams();
+			if (accountId) search.set("account_id", accountId);
+			if (searchText) search.set("q", searchText);
+			if (pageParam) search.set("cursor", pageParam);
+			return apiRequest<EmailListResponse>(`/api/emails?${search.toString()}`, { signal });
+		},
+		getNextPageParam: (lastPage: EmailListResponse) => lastPage.next_cursor,
 	});
 }
 
 export function useEmailQuery(id: string | null | undefined) {
 	return useQuery({
 		queryKey: ["emails", "detail", id || ""] as const,
-		queryFn: async () => (await apiRequest<EmailDetailResponse>(`/api/emails/${id}`)).item,
+		queryFn: async () => (await apiRequest<{ item: EmailDetail }>(`/api/emails/${id}`)).item,
 		enabled: Boolean(id),
 	});
 }
@@ -101,7 +96,7 @@ export function useEmailQuery(id: string | null | undefined) {
 export function useUpdateEmailReadMutation() {
 	return useMutation({
 		mutationFn: async ({ id, read }: { id: string; read: 0 | 1 }) =>
-			(await apiRequest<EmailRecordResponse>(`/api/emails/${id}/read`, {
+			(await apiRequest<{ item: EmailRecord }>(`/api/emails/${id}/read`, {
 				method: "PATCH",
 				body: { read },
 			})).item,

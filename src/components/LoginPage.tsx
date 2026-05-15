@@ -1,17 +1,13 @@
 import { ArrowRight, Check, LoaderCircle, LockKeyhole } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
+import { login } from "@/api/auth";
+import { ApiError } from "@/api/client";
 
-export default function LoginPage({
-	pending,
-	error,
-	onSubmit,
-}: {
-	pending: boolean;
-	error: string | null;
-	onSubmit: (secret: string, trusted: boolean) => Promise<void>;
-}) {
+export default function LoginPage({ onSuccess }: { onSuccess: () => void }) {
 	const [secret, setSecret] = useState("");
 	const [trusted, setTrusted] = useState(false);
+	const [pending, setPending] = useState(false);
+	const [error, setError] = useState<string | null>(null);
 
 	return (
 		<div className="flex min-h-svh items-center justify-center bg-background px-6 py-8 text-foreground selection:bg-primary selection:text-primary-foreground">
@@ -22,10 +18,19 @@ export default function LoginPage({
 					<p className="mt-3 text-sm leading-6 text-muted-foreground">输入密钥后进入邮件面板。</p>
 				</div>
 				<form
-					onSubmit={async (event: FormEvent<HTMLFormElement>) => {
+					onSubmit={async (event) => {
 						event.preventDefault();
 						if (pending || !secret.trim()) return;
-						await onSubmit(secret.trim(), trusted);
+						setPending(true);
+						setError(null);
+						try {
+							await login(secret.trim(), trusted);
+							onSuccess();
+						} catch (error) {
+							setError(error instanceof ApiError ? error.message : "登录失败，请稍后重试。");
+						} finally {
+							setPending(false);
+						}
 					}}
 					className="space-y-5"
 				>

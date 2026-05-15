@@ -24,28 +24,17 @@ async function getEmailRecord(db: ReturnType<typeof drizzle>, id: string) {
 }
 
 emailRoutes.get("/", async (c) => {
-	const limitValue = Number.parseInt(c.req.query("limit") || "20", 10);
 	const cursorValue = c.req.query("cursor");
 	const cursor = cursorValue ? Number.parseInt(cursorValue, 10) : null;
-	const accountId = c.req.query("account_id") || c.req.query("accountId") || null;
-	const readValue = c.req.query("read");
+	const accountId = c.req.query("account_id") || null;
 	const keyword = c.req.query("q")?.trim() || null;
 
-	if (!Number.isInteger(limitValue) || limitValue <= 0) {
-		return c.json({ error: "Invalid email list limit." }, 400);
-	}
 	if (cursorValue && (!Number.isInteger(cursor) || !cursor || cursor <= 0)) {
 		return c.json({ error: "Invalid email list cursor." }, 400);
 	}
-	if (readValue !== undefined && readValue !== "0" && readValue !== "1") {
-		return c.json({ error: "Invalid email read filter." }, 400);
-	}
 
-	const limit = Math.min(limitValue, 100);
 	const conditions: SQL[] = [];
-	const read = readValue === undefined ? null : Number(readValue) as 0 | 1;
 	if (accountId) conditions.push(eq(schema.emails.account_id, accountId));
-	if (read !== null) conditions.push(eq(schema.emails.read, read));
 	if (cursor) conditions.push(sql`emails.rowid < ${cursor}`);
 	if (keyword) {
 		const search = or(
@@ -70,11 +59,11 @@ emailRoutes.get("/", async (c) => {
 		.from(schema.emails)
 		.where(conditions.length > 0 ? and(...conditions) : undefined)
 		.orderBy(desc(sql`emails.rowid`), desc(schema.emails.id))
-		.limit(limit + 1)
+		.limit(41)
 		.all();
 
-	const hasMore = rows.length > limit;
-	const page = hasMore ? rows.slice(0, limit) : rows;
+	const hasMore = rows.length > 40;
+	const page = hasMore ? rows.slice(0, 40) : rows;
 	const nextCursor = hasMore ? String(page[page.length - 1].cursor) : null;
 
 	return c.json({

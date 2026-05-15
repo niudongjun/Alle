@@ -23,11 +23,11 @@ export default function MailboxPane() {
 	const deleteEmail = useDeleteEmailMutation();
 	const emailQuery = useEmailQuery(selectedEmailId);
 	const searchText = deferredSearchQuery.trim();
-	const listQuery = useEmailsInfiniteQuery({
-		account_id: account?.id ?? null,
-		q: searchText || null,
-		limit: 40,
-	}, activeAccount === "all" || accountsQuery.isSuccess && Boolean(account));
+	const listQuery = useEmailsInfiniteQuery(
+		account?.id ?? null,
+		searchText,
+		activeAccount === "all" || accountsQuery.isSuccess && Boolean(account),
+	);
 	const emails = listQuery.data?.pages.flatMap((page) => page.items) ?? [];
 	const virtualizer = useVirtualizer({
 		count: listQuery.hasNextPage ? emails.length + 1 : emails.length,

@@ -1,66 +1,51 @@
-import { useEffect, useState } from "react";
-import { useAccountsQuery } from "@/api/account";
-import { checkAuth, login } from "@/api/auth";
-import { ApiError, apiUnauthorizedEvent } from "@/api/client";
-import { useEmailsInfiniteQuery } from "@/api/email";
-import { useStatsQuery } from "@/api/stats";
+import { useEffect } from "react";
+import type { Account } from "@/api/account";
+import { apiRequest, queryClient } from "@/api/client";
+import { prefetchEmailsInfiniteQuery } from "@/api/email";
+import { hideBootLoading } from "@/lib/bootLoading";
+import type { Stats } from "@/api/stats";
 import Dashboard from "@/components/Dashboard";
-import LoginPage from "@/components/LoginPage";
 import MailboxPane from "@/components/MailboxPane";
 import Sidebar from "@/components/Sidebar";
 import { useAppStore } from "@/store/useAppStore";
 
-function hideBootLoading() {
-	const bootLoading = document.getElementById("app-boot-loading");
-	if (!bootLoading || bootLoading.dataset.state === "hidden") return;
-	bootLoading.dataset.state = "hidden";
-	bootLoading.classList.add("is-hidden");
-	window.setTimeout(() => bootLoading.remove(), 320);
-}
-
-function MailboxApp() {
+export default function App() {
 	const activeAccount = useAppStore((state) => state.activeAccount);
 	const setActiveAccount = useAppStore((state) => state.setActiveAccount);
-	const accountsQuery = useAccountsQuery();
-	const statsQuery = useStatsQuery();
-	const activeAccountRecord = accountsQuery.data?.find((account) => account.id === activeAccount);
-	const emailsQuery = useEmailsInfiniteQuery(
-		{
-			account_id: activeAccount === "dashboard" || activeAccount === "all" ? null : activeAccount,
-			limit: 40,
-		},
-	);
 
 	useEffect(() => {
-		if (!accountsQuery.isSuccess) return;
-		if (activeAccount === "dashboard" || activeAccount === "all") return;
-		// The selected tab is persisted in localStorage. Wait until the account list is loaded
-		// before validating it, otherwise a refresh would treat the temporary empty array as
-		// a deleted account and incorrectly bounce the user back to the dashboard.
-		if (!activeAccountRecord) setActiveAccount("dashboard");
-	}, [accountsQuery.isSuccess, activeAccount, activeAccountRecord, setActiveAccount]);
-
-	useEffect(() => {
-		// This boot loader is rendered in index.html so it can cover the blank page before
-		// React mounts. Keep it visible until the three startup queries have all settled.
-		// When localStorage restores an account id that no longer exists, wait for the
-		// redirect back to the dashboard as well, otherwise the mask could disappear while
-		// React is still about to replace the stale mailbox view with the real landing page.
-		if (
-			accountsQuery.status === "pending"
-			|| statsQuery.status === "pending"
-			|| emailsQuery.status === "pending"
-			|| (accountsQuery.isSuccess && activeAccount !== "dashboard" && activeAccount !== "all" && !activeAccountRecord)
-		) return;
-		hideBootLoading();
-	}, [
-		accountsQuery.isSuccess,
-		accountsQuery.status,
-		activeAccount,
-		activeAccountRecord,
-		emailsQuery.status,
-		statsQuery.status,
-	]);
+		let cancelled = false;
+		void (async () => {
+			try {
+				const currentActiveAccount = useAppStore.getState().activeAccount;
+				const todayStart = Math.floor(new Date().setHours(0, 0, 0, 0) / 1000);
+				const statsPromise = queryClient.fetchQuery({
+					queryKey: ["stats", todayStart],
+					queryFn: () => apiRequest<Stats>(`/api/stats?today_start=${todayStart}`),
+				});
+				const accounts = await queryClient.fetchQuery({
+					queryKey: ["accounts", "list"] as const,
+					queryFn: async ({ signal }) => (await apiRequest<{ items: Account[] }>("/api/accounts", { signal })).items,
+				});
+				if (cancelled) return;
+				const nextActiveAccount = currentActiveAccount !== "dashboard" && currentActiveAccount !== "all" && !accounts.some((account) => account.id === currentActiveAccount)
+					? "dashboard"
+					: currentActiveAccount;
+				if (nextActiveAccount !== currentActiveAccount) setActiveAccount("dashboard");
+				if (nextActiveAccount !== "dashboard") await prefetchEmailsInfiniteQuery(nextActiveAccount === "all" ? null : nextActiveAccount);
+				await statsPromise;
+			} catch {
+			} finally {
+				if (cancelled) return;
+				// 启动顺序固定在这里一次做完：先拿账号列表，再清掉失效账号，再预取首屏邮件，
+				// 最后等统计也就绪后再放开页面。这样刷新时不会先露出旧视图，再跳回 dashboard。
+				hideBootLoading();
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, [setActiveAccount]);
 
 	return (
 		<div className="flex h-svh w-screen overflow-hidden bg-background font-sans text-foreground selection:bg-primary selection:text-primary-foreground">
@@ -72,68 +57,4 @@ function MailboxApp() {
 			)}
 		</div>
 	);
-}
-
-export default function App() {
-	const [authState, setAuthState] = useState<"checking" | "guest" | "authed">("checking");
-	const [loginPending, setLoginPending] = useState(false);
-	const [loginError, setLoginError] = useState<string | null>(null);
-
-	useEffect(() => {
-		let cancelled = false;
-		// Keep the mailbox subtree unmounted until the auth probe finishes. That guarantees
-		// the existing account/stats/email queries never run before a valid cookie exists.
-		void checkAuth()
-			.then((ok) => {
-				if (cancelled) return;
-				setAuthState(ok ? "authed" : "guest");
-				if (ok) setLoginError(null);
-			})
-			.catch((error: unknown) => {
-				if (cancelled) return;
-				setAuthState("guest");
-				setLoginError(error instanceof Error ? error.message : "服务端连接失败，请稍后重试。");
-			});
-		return () => {
-			cancelled = true;
-		};
-	}, []);
-
-	useEffect(() => {
-		// Any protected request can raise this when the short-lived cookie expires. Switch
-		// straight back to the login screen instead of leaving the mailbox panels in 401 state.
-		const handleUnauthorized = () => setAuthState("guest");
-		window.addEventListener(apiUnauthorizedEvent, handleUnauthorized);
-		return () => window.removeEventListener(apiUnauthorizedEvent, handleUnauthorized);
-	}, []);
-
-	useEffect(() => {
-		if (authState !== "guest") return;
-		hideBootLoading();
-	}, [authState]);
-
-	if (authState === "checking") return null;
-
-	if (authState === "guest") {
-		return (
-			<LoginPage
-				pending={loginPending}
-				error={loginError}
-				onSubmit={async (secret, trusted) => {
-					setLoginPending(true);
-					setLoginError(null);
-					try {
-						await login(secret, trusted);
-						setAuthState("authed");
-					} catch (error) {
-						setLoginError(error instanceof ApiError ? error.message : "登录失败，请稍后重试。");
-					} finally {
-						setLoginPending(false);
-					}
-				}}
-			/>
-		);
-	}
-
-	return <MailboxApp />;
 }

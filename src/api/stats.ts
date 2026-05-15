@@ -14,5 +14,6 @@ export function useStatsQuery() {
 	return useQuery({
 		queryKey: ["stats", todayStart],
 		queryFn: () => apiRequest<Stats>(`/api/stats?today_start=${todayStart}`),
+		refetchOnMount: 'always',
 	});
 }

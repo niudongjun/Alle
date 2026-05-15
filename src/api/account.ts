@@ -21,6 +21,7 @@ export function useAccountsQuery() {
 	return useQuery({
 		queryKey: ["accounts", "list"] as const,
 		queryFn: async ({ signal }) => (await apiRequest<{ items: Account[] }>("/api/accounts", { signal })).items,
+		refetchOnMount: 'always',
 	});
 }
 

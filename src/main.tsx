@@ -1,8 +1,11 @@
 import "@/index.css";
-import { queryClient } from "@/api/client.ts";
+import { checkAuth } from "@/api/auth";
+import { apiUnauthorizedEvent, queryClient } from "@/api/client.ts";
 import App from "@/App.tsx";
+import LoginPage from "@/components/LoginPage";
+import { hideBootLoading } from "@/lib/bootLoading";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { StrictMode } from "react";
+import { StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 
 // Keep the root theme class and browser color-scheme hint aligned with the OS
@@ -18,11 +21,55 @@ systemColorScheme.addEventListener("change", (event) => {
 	applySystemColorScheme(event.matches);
 });
 
-createRoot(document.getElementById("root")!).render(
-	<StrictMode>
+function AuthGate() {
+	const [authState, setAuthState] = useState<boolean | null>(null);
+
+	useEffect(() => {
+		let cancelled = false;
+		const handleUnauthorized = () => {
+			if (cancelled) return;
+			queryClient.clear();
+			setAuthState(false);
+			hideBootLoading();
+		};
+		window.addEventListener(apiUnauthorizedEvent, handleUnauthorized);
+		void checkAuth()
+			.then((ok) => {
+				if (cancelled) return;
+				if (!ok) {
+					queryClient.clear();
+					hideBootLoading();
+				}
+				setAuthState(ok);
+			})
+			.catch(() => {
+				if (cancelled) return;
+				queryClient.clear();
+				setAuthState(false);
+				hideBootLoading();
+			});
+		return () => {
+			cancelled = true;
+			window.removeEventListener(apiUnauthorizedEvent, handleUnauthorized);
+		};
+	}, []);
+
+	if (authState === null) return null;
+
+	if (authState === false) {
+		return <LoginPage onSuccess={() => setAuthState(true)} />;
+	}
+
+	return (
 		<QueryClientProvider client={queryClient}>
 			<App />
 		</QueryClientProvider>
+	);
+}
+
+createRoot(document.getElementById("root")!).render(
+	<StrictMode>
+		<AuthGate />
 	</StrictMode>,
 );
 
