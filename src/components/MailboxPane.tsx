@@ -84,8 +84,8 @@ export default function MailboxPane() {
 	return (
 		<main className="relative flex h-full min-w-0 flex-1">
 			<section className="flex h-full min-w-0 flex-1 flex-col bg-background/60 md:basis-1/3 md:flex-none">
-				<div className="flex shrink-0 flex-col gap-4 px-4 pt-6 pb-4 sm:px-6 sm:pt-6 md:gap-5 md:pt-10">
-					<div className="h-10 sm:h-11 md:h-12">
+				<div className="flex shrink-0 flex-col gap-4 px-4 pb-4 pt-6 md:pt-10 md:gap-5">
+					<div className="h-10 md:h-12">
 						<input
 							type="text"
 							value={editingRemark ? remarkDraft : activeAccount === "all" ? "全部邮件" : account?.remark || account?.email || "收件箱"}
@@ -117,7 +117,7 @@ export default function MailboxPane() {
 								event.currentTarget.blur();
 							}}
 							placeholder={account?.email || "备注"}
-							className={`h-full w-full min-w-0 appearance-none rounded-lg px-3 py-0 text-lg leading-none font-bold tracking-tight text-foreground outline-none transition-colors sm:text-xl md:text-2xl ${editingRemark ? "bg-secondary focus:bg-muted" : "bg-transparent"} ${account ? "cursor-text" : ""}`}
+							className={`h-full w-full min-w-0 appearance-none rounded-lg px-3 py-0 text-xl leading-none font-bold tracking-tight text-foreground outline-none transition-colors md:text-2xl ${editingRemark ? "bg-secondary focus:bg-muted" : "bg-transparent"} ${account ? "cursor-text" : ""}`}
 						/>
 					</div>
 					<div className="group relative flex items-center">
@@ -131,7 +131,7 @@ export default function MailboxPane() {
 						/>
 					</div>
 				</div>
-				<div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-3 pb-4 sm:pb-6 md:px-4 md:pb-10 [&::-webkit-scrollbar]:hidden">
+				<div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-3 pb-4 md:px-4 md:pb-10 [&::-webkit-scrollbar]:hidden">
 					{isListPending ? (
 						<div className="flex h-40 items-center justify-center text-sm font-medium text-muted-foreground">邮件加载中</div>
 					) : isListError ? (
@@ -193,7 +193,7 @@ export default function MailboxPane() {
 													</span>
 												</div>
 											</div>
-											<h3 className={`pr-2 text-sm leading-snug sm:text-base md:pr-4 ${listEmail.read === 0 ? "font-bold text-foreground" : "font-medium text-foreground"}`}>
+											<h3 className={`pr-2 text-sm leading-snug md:pr-4 ${listEmail.read === 0 ? "font-bold text-foreground" : "font-medium text-foreground"}`}>
 												{listEmail.subject || "(无主题)"}
 											</h3>
 										</div>

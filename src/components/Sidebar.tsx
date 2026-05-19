@@ -78,7 +78,7 @@ export default function Sidebar() {
 
 	return (
 		<aside className="relative z-20 flex h-full w-20 shrink-0 flex-col items-center pt-6 md:pt-10">
-			<div className="relative mb-6 md:mb-8">
+			<div className="relative mb-6 md:mb-8 top-0.5 md:top-1.5">
 				<button
 					type="button"
 					onClick={async () => {
@@ -93,7 +93,7 @@ export default function Sidebar() {
 							setIsRefreshing(false);
 						}
 					}}
-					className="peer flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors outline-none hover:bg-secondary hover:text-foreground"
+					className="peer flex size-10 items-center justify-center rounded-full text-muted-foreground transition-colors outline-none hover:bg-secondary hover:text-foreground"
 				>
 					<RefreshCw size={18} strokeWidth={2} className={isRefreshing ? "animate-spin text-foreground" : ""} />
 				</button>
