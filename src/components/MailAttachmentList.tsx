@@ -26,7 +26,7 @@ export default function MailAttachmentList({ emailId, attachments, className }: 
 							key={attachment.id}
 							href={`/api/emails/${emailId}/attachments/${attachment.id}`}
 							target="_blank"
-							rel="noreferrer"
+							rel="noopener noreferrer"
 							className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-sm transition-colors hover:bg-secondary"
 						>
 							{attachment.mimetype.startsWith("image/") ? <FileImage size={16} className="shrink-0 text-muted-foreground" /> : <FileText size={16} className="shrink-0 text-muted-foreground" />}

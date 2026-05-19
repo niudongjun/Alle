@@ -92,6 +92,11 @@ a {
 }
 </style><div class="mail-shadow-content">${html.replace(/<\/?body[^>]*>/gi, "")}</div>`;
 
+		for (const link of shadowRoot.querySelectorAll<HTMLAnchorElement>("a[href]")) {
+			link.target = "_blank";
+			link.rel = Array.from(new Set(`${link.rel} noopener noreferrer`.split(/\s+/).filter(Boolean))).join(" ");
+		}
+
 		const syncScale = () => {
 			const content = shadowRoot.querySelector<HTMLElement>(".mail-shadow-content");
 			const parentWidth = host.parentElement?.clientWidth || host.clientWidth;
