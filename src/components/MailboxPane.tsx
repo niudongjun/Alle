@@ -6,7 +6,7 @@ import { parseRawHeaders } from "@/lib/rawHeaders";
 import { useAppStore } from "@/store/useAppStore";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Circle, Info, Search, Trash2, X } from "lucide-react";
-import { useDeferredValue, useEffect, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 
 export default function MailboxPane() {
 	const activeAccount = useAppStore((state) => state.activeAccount);
@@ -28,13 +28,24 @@ export default function MailboxPane() {
 		searchText,
 		activeAccount === "all" || accountsQuery.isSuccess && Boolean(account),
 	);
-	const emails = listQuery.data?.pages.flatMap((page) => page.items) ?? [];
+	const {
+		data: emailsData,
+		fetchNextPage,
+		hasNextPage,
+		isError: isListError,
+		isFetchingNextPage,
+		isPending: isListPending,
+	} = listQuery;
+	const emails = useMemo(() => emailsData?.pages.flatMap((page) => page.items) ?? [], [emailsData]);
+	const getEmailItemKey = useCallback((index: number) => emails[index]?.id ?? "loading-more", [emails]);
 	const virtualizer = useVirtualizer({
-		count: listQuery.hasNextPage ? emails.length + 1 : emails.length,
+		count: hasNextPage ? emails.length + 1 : emails.length,
 		getScrollElement: () => scrollRef.current,
 		estimateSize: () => 88,
+		getItemKey: getEmailItemKey,
 		overscan: 8,
 	});
+	const virtualItems = virtualizer.getVirtualItems();
 	useEffect(() => {
 		setSelectedEmailId(null);
 		setEditingRemark(false);
@@ -50,22 +61,17 @@ export default function MailboxPane() {
 	}, [account?.id, deferredSearchQuery]);
 
 	useEffect(() => {
-		// TanStack Virtual only renders the rows near the viewport. Add one synthetic row when a next
-		// page exists and watch for that placeholder to become the last rendered item. This avoids
-		// brittle scroll-height math and still keeps infinite loading aligned with measured row heights.
-		const lastItem = virtualizer.getVirtualItems().at(-1);
-		if (!lastItem || !listQuery.hasNextPage || listQuery.isFetchingNextPage) return;
+		const lastItem = virtualItems.at(-1);
+		if (!lastItem || !hasNextPage || isFetchingNextPage) return;
 		if (lastItem.index < emails.length - 1) return;
-		void listQuery.fetchNextPage();
-	}, [emails.length, listQuery.fetchNextPage, listQuery.hasNextPage, listQuery.isFetchingNextPage, virtualizer]);
+		void fetchNextPage();
+	}, [emails.length, fetchNextPage, hasNextPage, isFetchingNextPage, virtualItems]);
 
 	const email = emailQuery.data;
 	const parsedHeaders = email ? parseRawHeaders(email.raw_headers) : null;
 	const routeNodes: string[] = [];
 
 	if (parsedHeaders) {
-		// Different forwarding headers often repeat the same mailbox across adjacent hops. Collapse only
-		// contiguous duplicates so the popover stays compact without inventing or reordering the route.
 		for (const route of parsedHeaders.routes) {
 			for (const value of [route.from, route.to]) {
 				const normalized = value.trim();
@@ -101,8 +107,6 @@ export default function MailboxPane() {
 								updateAccount.mutate({ id: account.id, body: { remark: nextRemark } }, { onSuccess: () => setEditingRemark(false) });
 							}}
 							onKeyDown={(event) => {
-								// Chinese IMEs also use Enter to confirm the current candidate. Ignore that
-								// composition phase so saving only happens after the final text is committed.
 								if (event.nativeEvent.isComposing) return;
 								if (event.key === "Escape") {
 									setEditingRemark(false);
@@ -128,9 +132,9 @@ export default function MailboxPane() {
 					</div>
 				</div>
 				<div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-3 pb-4 sm:pb-6 md:px-4 md:pb-10 [&::-webkit-scrollbar]:hidden">
-					{listQuery.isPending ? (
+					{isListPending ? (
 						<div className="flex h-40 items-center justify-center text-sm font-medium text-muted-foreground">邮件加载中</div>
-					) : listQuery.isError ? (
+					) : isListError ? (
 						<div className="flex h-40 items-center justify-center text-sm font-medium text-muted-foreground">邮件加载失败</div>
 					) : emails.length === 0 ? (
 						<div className="flex h-40 items-center justify-center text-sm font-medium text-muted-foreground">
@@ -138,7 +142,7 @@ export default function MailboxPane() {
 						</div>
 					) : (
 						<div style={{ height: `${virtualizer.getTotalSize()}px`, position: "relative" }}>
-							{virtualizer.getVirtualItems().map((virtualRow) => {
+							{virtualItems.map((virtualRow) => {
 								const listEmail = emails[virtualRow.index];
 								if (!listEmail) {
 									return (
@@ -147,7 +151,7 @@ export default function MailboxPane() {
 											className="absolute left-0 top-0 flex w-full items-center justify-center py-4 text-sm font-medium text-muted-foreground"
 											style={{ transform: `translateY(${virtualRow.start}px)` }}
 										>
-											{listQuery.isFetchingNextPage ? "加载更多邮件..." : ""}
+											{isFetchingNextPage ? "加载更多邮件..." : ""}
 										</div>
 									);
 								}
@@ -166,8 +170,6 @@ export default function MailboxPane() {
 									>
 										<div
 											onClick={() => {
-												// Selection should feel immediate. Fire the read mutation in parallel so the
-												// drawer opens at once while the unread dot and weight update from cache refresh.
 												setSelectedEmailId(listEmail.id);
 												if (listEmail.read === 0) updateRead.mutate({ id: listEmail.id, read: 1 });
 											}}
