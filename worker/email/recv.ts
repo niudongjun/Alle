@@ -1,4 +1,4 @@
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import PostalMime from "postal-mime";
 import * as schema from "../db/schema";
@@ -186,14 +186,20 @@ export async function emailHandler(
 			break;
 		}
 
-		// 第一次见到某个自动转发邮箱时直接建号；并发下若别人已经建好，则回查现有记录继续。
+		// 第一次见到某个自动转发邮箱时直接建号，新账号放到现有排序末尾；
+		// 并发下若别人已经建好，则回查现有记录继续。
 		if (!matchedAccount) {
 			const accountEmail = candidateEmails[0];
 			const accountId = crypto.randomUUID();
+			const nextSortOrder = (await db
+				.select({ value: sql<number>`COALESCE(MAX(${schema.accounts.sort_order}), -1) + 1` })
+				.from(schema.accounts)
+				.get())?.value ?? 0;
 			const created = await db.insert(schema.accounts).values({
 				id: accountId,
 				email: accountEmail,
 				remark: accountEmail,
+				sort_order: nextSortOrder,
 			}).onConflictDoNothing({
 				target: schema.accounts.email,
 			}).run();

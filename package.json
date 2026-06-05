@@ -11,8 +11,8 @@
 		"deploy": "pnpm run db:migrations:apply && pnpm run build && wrangler deploy",
 		"cf-typegen": "wrangler types",
 		"secret": "wrangler secret  bulk .dev.vars",
-		"db:migrations:apply:local": "yes | wrangler d1 migrations apply DB --local",
-		"db:migrations:apply": "yes | wrangler d1 migrations apply DB --remote"
+		"db:migrations:apply:local": "wrangler d1 migrations apply DB --local",
+		"db:migrations:apply": "wrangler d1 migrations apply DB --remote"
 	},
 	"dependencies": {
 		"@dnd-kit/dom": "^0.4.0",
