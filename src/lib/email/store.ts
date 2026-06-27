@@ -7,40 +7,67 @@ import * as cheerio from 'cheerio';
 import { DEFAULT_EXTRACT_RESULT } from "@/types";
 import type { Email, NewEmail } from "@/types";
 
-
+/**
+ * 递归替换模板中的占位符 {{key}} 为 email 对象中对应的值
+ * @param template - JSON 模板字符串，包含 {{key}} 格式的占位符
+ * @param email - 包含替换数据的 Email 对象
+ * @returns 替换后的 JSON 字符串
+ */
 function replaceTemplateAdvanced(template: string, email: Email): string {
     try {
-        // 解析模板
-        const templateObj = JSON.parse(template);
+        // 解析模板为对象
+        const templateObj: unknown = JSON.parse(template);
         
-        // 递归替换占位符
-        function replaceValues(obj: any): any {
+        /**
+         * 递归替换所有字符串中的占位符
+         * 使用泛型和类型守卫确保类型安全
+         */
+        function replaceValues<T>(obj: T): T {
+            // 处理字符串：替换占位符
             if (typeof obj === 'string') {
-                return obj.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+                return obj.replace(/\{\{(\w+)\}\}/g, (_, key) => {
                     const value = email[key as keyof Email];
                     return value !== null && value !== undefined ? String(value) : '';
-                });
+                }) as T;
             }
+            
+            // 处理数组：递归处理每个元素
             if (Array.isArray(obj)) {
-                return obj.map(replaceValues);
+                return obj.map(item => replaceValues(item)) as T;
             }
+            
+            // 处理普通对象：递归处理每个属性
             if (obj && typeof obj === 'object') {
-                const result: any = {};
-                for (const [k, v] of Object.entries(obj)) {
-                    result[k] = replaceValues(v);
+                const result: Record<string, unknown> = {};
+                for (const [key, value] of Object.entries(obj)) {
+                    result[key] = replaceValues(value);
                 }
-                return result;
+                return result as T;
             }
+            
+            // 其他类型（null, number, boolean 等）直接返回
             return obj;
         }
         
+        // 执行替换
         const replaced = replaceValues(templateObj);
         
-        // 使用 JSON.stringify 自动转义
+        // 序列化为 JSON 字符串，自动转义特殊字符
         return JSON.stringify(replaced);
+        
     } catch (error) {
-        console.error("template replace failed:", error);
-        return JSON.stringify({ error: "模板解析失败" });
+        // 详细的错误日志
+        console.error('template replace failed:', {
+            error: error instanceof Error ? error.message : String(error),
+            templatePreview: template.slice(0, 200) + (template.length > 200 ? '...' : ''),
+            templateLength: template.length
+        });
+        
+        // 返回包含错误信息的 JSON，避免整个流程中断
+        return JSON.stringify({
+            error: 'template parse failed',
+            message: error instanceof Error ? error.message : 'unknow error'
+        });
     }
 }
 
