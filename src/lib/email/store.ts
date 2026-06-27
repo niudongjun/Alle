@@ -9,13 +9,39 @@ import type { Email, NewEmail } from "@/types";
 
 
 function replaceTemplateAdvanced(template: string, email: Email): string {
-    return template.replace(/{(\w+)}/g, (match, key) => {
-        const value = email[key as keyof Email];
-        if (value === null || value === undefined) {
-            return '';
+    try {
+        // 解析模板
+        const templateObj = JSON.parse(template);
+        
+        // 递归替换占位符
+        function replaceValues(obj: any): any {
+            if (typeof obj === 'string') {
+                return obj.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+                    const value = email[key as keyof Email];
+                    return value !== null && value !== undefined ? String(value) : '';
+                });
+            }
+            if (Array.isArray(obj)) {
+                return obj.map(replaceValues);
+            }
+            if (obj && typeof obj === 'object') {
+                const result: any = {};
+                for (const [k, v] of Object.entries(obj)) {
+                    result[k] = replaceValues(v);
+                }
+                return result;
+            }
+            return obj;
         }
-        return JSON.stringify(String(value)).slice(1, -1);
-    });
+        
+        const replaced = replaceValues(templateObj);
+        
+        // 使用 JSON.stringify 自动转义
+        return JSON.stringify(replaced);
+    } catch (error) {
+        console.error("template replace failed:", error);
+        return JSON.stringify({ error: "模板解析失败" });
+    }
 }
 
 export default async function storeEmail(
