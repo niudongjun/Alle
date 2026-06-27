@@ -7,68 +7,14 @@ import * as cheerio from 'cheerio';
 import { DEFAULT_EXTRACT_RESULT } from "@/types";
 import type { Email, NewEmail } from "@/types";
 
-/**
- * 递归替换模板中的占位符 {{key}} 为 email 对象中对应的值
- * @param template - JSON 模板字符串，包含 {{key}} 格式的占位符
- * @param email - 包含替换数据的 Email 对象
- * @returns 替换后的 JSON 字符串
- */
 function replaceTemplateAdvanced(template: string, email: Email): string {
-    try {
-        // 解析模板为对象
-        const templateObj: unknown = JSON.parse(template);
-        
-        /**
-         * 递归替换所有字符串中的占位符
-         * 使用泛型和类型守卫确保类型安全
-         */
-        function replaceValues<T>(obj: T): T {
-            // 处理字符串：替换占位符
-            if (typeof obj === 'string') {
-                return obj.replace(/\{\{(\w+)\}\}/g, (_, key) => {
-                    const value = email[key as keyof Email];
-                    return value !== null && value !== undefined ? String(value) : '';
-                }) as T;
-            }
-            
-            // 处理数组：递归处理每个元素
-            if (Array.isArray(obj)) {
-                return obj.map(item => replaceValues(item)) as T;
-            }
-            
-            // 处理普通对象：递归处理每个属性
-            if (obj && typeof obj === 'object') {
-                const result: Record<string, unknown> = {};
-                for (const [key, value] of Object.entries(obj)) {
-                    result[key] = replaceValues(value);
-                }
-                return result as T;
-            }
-            
-            // 其他类型（null, number, boolean 等）直接返回
-            return obj;
+    return template.replace(/{(\w+)}/g, (match, key) => {
+        const value = email[key as keyof Email];
+        if (value === null || value === undefined) {
+            return '';
         }
-        
-        // 执行替换
-        const replaced = replaceValues(templateObj);
-        
-        // 序列化为 JSON 字符串，自动转义特殊字符
-        return JSON.stringify(replaced);
-        
-    } catch (error) {
-        // 详细的错误日志
-        console.error('template replace failed:', {
-            error: error instanceof Error ? error.message : String(error),
-            templatePreview: template.slice(0, 200) + (template.length > 200 ? '...' : ''),
-            templateLength: template.length
-        });
-        
-        // 返回包含错误信息的 JSON，避免整个流程中断
-        return JSON.stringify({
-            error: 'template parse failed',
-            message: error instanceof Error ? error.message : 'unknow error'
-        });
-    }
+        return JSON.stringify(String(value)).slice(1, -1);
+    });
 }
 
 export default async function storeEmail(
