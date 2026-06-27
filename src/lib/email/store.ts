@@ -9,27 +9,13 @@ import type { Email, NewEmail } from "@/types";
 
 
 function replaceTemplateAdvanced(template: string, email: Email): string {
-    try {
-        // 第一步：替换所有占位符为实际值（不转义）
-        const filled = template.replace(/{(\w+)}/g, (match, key) => {
-            const value = email[key as keyof Email];
-            if (value === null || value === undefined) {
-                return '';
-            }
-            return String(value);
-        });
-        
-        // 第二步：解析为对象
-        const obj = JSON.parse(filled);
-        
-        // 第三步：重新序列化，确保所有特殊字符被正确转义
-        return JSON.stringify(obj);
-    } catch (error) {
-        console.error("模板替换失败:", error);
-        console.error("模板内容:", template);
-        // 返回一个空的 JSON 对象，避免程序崩溃
-        return JSON.stringify({ error: "模板解析失败" });
-    }
+    return template.replace(/{(\w+)}/g, (match, key) => {
+        const value = email[key as keyof Email];
+        if (value === null || value === undefined) {
+            return '';
+        }
+        return JSON.stringify(String(value)).slice(1, -1);
+    });
 }
 
 export default async function storeEmail(
