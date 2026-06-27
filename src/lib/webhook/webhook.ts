@@ -21,6 +21,7 @@ export default async function sendWebhook(payload: string, url: string): Promise
         clearTimeout(timeoutId)
 
         if (!response.ok) {
+            console.log("发送的 webhook payload:", payload)
             const errorMsg = `HTTP ${response.status}: ${response.statusText}`
             console.error('Webhook error:', errorMsg)
         }
